@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JigsawStack Real-Time STT</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 900px;
+            width: 100%;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        #status {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            color: white;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .waveform-container {
+            background: #1a1a2e;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        #waveform {
+            width: 100%;
+            height: 150px;
+            display: block;
+            border-radius: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            font-size: 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.stop {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        button.stop:hover {
+            box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+        }
+
+        button.clear {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
+        }
+
+        button.clear:hover {
+            box-shadow: 0 6px 20px rgba(79, 172, 254, 0.6);
+        }
+
+        .transcription-section {
+            margin-top: 30px;
+        }
+
+        .transcription-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .transcription-header h2 {
+            color: #333;
+            font-size: 20px;
+        }
+
+        #transcription {
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 20px;
+            background: #fafafa;
+            line-height: 1.8;
+            font-size: 18px;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        #transcription::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #transcription::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        #transcription::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+
+        #transcription::-webkit-scrollbar-thumb:hover {
+            background: #764ba2;
+        }
+
+        .info {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(255, 152, 0, 0.2);
+        }
+
+        .info p {
+            margin: 5px 0;
+            color: #333;
+        }
+
+        .info strong {
+            color: #e65100;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Real-Time Speech to Text</h1>
+        <div class="subtitle">Powered by JigsawStack & Voice Activity Detection</div>
+
+        <div id="status">Initializing...</div>
+
+        <div class="waveform-container">
+            <canvas id="waveform"></canvas>
+        </div>
+
+        <div class="controls">
+            <button class="stop" onclick="window.stopRealtimeStt()">⏹ Stop Recording</button>
+            <button class="clear" onclick="window.clearTranscription()">🗑️ Clear Transcript</button>
+        </div>
+
+        <div class="info">
+            <p><strong>Voice Activity Detection:</strong> Transcription happens automatically when you stop speaking. Speak naturally and watch your words appear in real-time!</p>
+        </div>
+
+        <div class="transcription-section">
+            <div class="transcription-header">
+                <h2>📝 Transcription</h2>
+            </div>
+            <div id="transcription"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // All functions and variables in module scope
+        let currentSegmentText = ""; // Current evolving segment
+
+        function updateStatus(message) {
+            const statusEl = document.getElementById("status");
+            if (statusEl) statusEl.textContent = message;
+        }
+
+        function updateTranscriptDisplay() {
+            const transcriptionEl = document.getElementById("transcription");
+            if (!transcriptionEl) return;
+
+            transcriptionEl.innerHTML = "";
+
+            const finalSegments = transcriptionEl.dataset.finalSegments || "";
+            if (finalSegments) {
+                const finalSpan = document.createElement("span");
+                finalSpan.textContent = finalSegments;
+                finalSpan.style.color = "#333";
+                finalSpan.style.fontStyle = "normal";
+                transcriptionEl.appendChild(finalSpan);
+            }
+
+            if (currentSegmentText && currentSegmentText.trim() !== "") {
+                const currentSpan = document.createElement("span");
+                currentSpan.textContent = (finalSegments ? " " : "") + currentSegmentText;
+                currentSpan.style.color = "#666";
+                currentSpan.style.fontStyle = "italic";
+                transcriptionEl.appendChild(currentSpan);
+            }
+
+            transcriptionEl.scrollTop = transcriptionEl.scrollHeight;
+        }
+
+        // Helper function to actually finalize the segment
+        function finalizeSpeechSegment() {
+            isSpeaking = false;
+            updateStatus("✅ Ready! Start speaking...");
+            stopContinuousRecording();
+            stopTranscriptionInterval();
+            finalizeCurrentSegment(); // This clears currentSegmentText internally
+            audioBuffer = [];
+            speechStartTime = null;
+            silenceTimeout = null;
+        }
+
+        function finalizeCurrentSegment() {
+            const transcriptionEl = document.getElementById("transcription");
+            if (!transcriptionEl) return;
+
+            segmentFinalized = true;
+
+            if (currentSegmentText && currentSegmentText.trim() !== "") {
+                const oldFinalSegments = transcriptionEl.dataset.finalSegments || "";
+                transcriptionEl.dataset.finalSegments = oldFinalSegments + (oldFinalSegments ? " " : "") + currentSegmentText;
+                currentSegmentText = "";
+            }
+
+            updateTranscriptDisplay();
+        }
+
+        // Global clear function
+        window.clearTranscription = () => {
+            const transcriptionEl = document.getElementById("transcription");
+            if (transcriptionEl) {
+                transcriptionEl.innerHTML = "";
+                transcriptionEl.dataset.finalSegments = "";
+            }
+            currentSegmentText = "";
+        };
+
+        updateStatus("Initializing...");
+
+        const ws = new WebSocket("ws://localhost:8080/ws/stt");
+
+        // Simple energy-based VAD
+        let audioStream = null;
+        let isRecording = false;
+        let audioContext = null;
+        let analyser = null;
+        let isSpeaking = false;
+        let silenceTimeout = null;
+        let transcriptionInterval = null;
+        let speechStartTime = null;
+        let segmentFinalized = false; // Track if current segment has been finalized
+        let pendingTranscriptions = 0; // Track pending transcription requests
+
+        // PCM audio buffer
+        let audioBuffer = [];
+        let audioSourceNode = null;
+        let scriptProcessorNode = null;
+
+        // Waveform visualization
+        let canvas = null;
+        let canvasCtx = null;
+        let animationId = null;
+
+        // VAD parameters
+        const ENERGY_THRESHOLD = 0.02; // Energy threshold for speech detection
+        const SILENCE_DURATION = 3000; // 3 seconds of silence to stop
+        const CHECK_INTERVAL = 100; // Check every 100ms
+        const TRANSCRIBE_INTERVAL = 1000; // Transcribe every 1 second
+
+        // Add WebSocket error handling
+        ws.addEventListener("error", (error) => {
+            console.error("WebSocket error:", error);
+            updateStatus("WebSocket connection failed - is the server running?");
+        });
+
+        ws.addEventListener("open", async () => {
+            updateStatus("WebSocket connected. Getting microphone access...");
+
+            try {
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                updateStatus("Microphone ready. Initializing VAD...");
+            } catch (err) {
+                console.error("Microphone access error:", err);
+                updateStatus("Microphone access denied: " + err.message);
+                return;
+            }
+
+            // Send config
+            ws.send(JSON.stringify({
+                type: "config",
+                config: {
+                    language: "en",
+                    encoding: "wav",
+                    interimResults: true,
+                    format: "text",
+                },
+            }));
+
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048;
+
+                const source = audioContext.createMediaStreamSource(audioStream);
+                source.connect(analyser);
+
+                canvas = document.getElementById('waveform');
+                canvasCtx = canvas.getContext('2d');
+
+                canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+                canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+                canvasCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+                startVADMonitoring();
+                drawWaveform();
+
+                updateStatus("✅ Ready! Start speaking...");
+            } catch (err) {
+                console.error("VAD initialization error:", err);
+                updateStatus("Error initializing VAD: " + err.message);
+            }
+        });
+
+        ws.addEventListener("message", (event) => {
+            const msg = JSON.parse(event.data);
+
+            if (msg.type === "ready") {
+                return;
+            } else if (msg.type === "partial" || msg.type === "final") {
+                const text = msg.text ?? JSON.stringify(msg.result);
+
+                pendingTranscriptions = Math.max(0, pendingTranscriptions - 1);
+
+                if (segmentFinalized) {
+                    return;
+                }
+
+                currentSegmentText = text;
+                updateTranscriptDisplay();
+            } else if (msg.type === "error") {
+                console.error("Server error:", msg.error);
+                updateStatus("Error: " + msg.error);
+            }
+        });
+
+        ws.addEventListener("close", () => {
+            updateStatus("WebSocket closed");
+            stopContinuousRecording();
+        });
+
+        // Draw waveform visualization
+        function drawWaveform() {
+            if (!analyser || !canvas || !canvasCtx) return;
+
+            const WIDTH = canvas.offsetWidth;
+            const HEIGHT = canvas.offsetHeight;
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            function draw() {
+                animationId = requestAnimationFrame(draw);
+
+                analyser.getByteTimeDomainData(dataArray);
+
+                // Clear canvas with dark background
+                canvasCtx.fillStyle = '#1a1a2e';
+                canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
+
+                // Draw waveform
+                canvasCtx.lineWidth = 3;
+
+                // Change color based on speaking state
+                if (isSpeaking) {
+                    // Gradient when speaking
+                    const gradient = canvasCtx.createLinearGradient(0, 0, WIDTH, 0);
+                    gradient.addColorStop(0, '#667eea');
+                    gradient.addColorStop(0.5, '#764ba2');
+                    gradient.addColorStop(1, '#f093fb');
+                    canvasCtx.strokeStyle = gradient;
+                } else {
+                    // Dim blue when not speaking
+                    canvasCtx.strokeStyle = '#4a5568';
+                }
+
+                canvasCtx.beginPath();
+
+                const sliceWidth = WIDTH / bufferLength;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const v = dataArray[i] / 128.0;
+                    const y = (v * HEIGHT) / 2;
+
+                    if (i === 0) {
+                        canvasCtx.moveTo(x, y);
+                    } else {
+                        canvasCtx.lineTo(x, y);
+                    }
+
+                    x += sliceWidth;
+                }
+
+                canvasCtx.lineTo(WIDTH, HEIGHT / 2);
+                canvasCtx.stroke();
+
+                // Draw center line
+                canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                canvasCtx.lineWidth = 1;
+                canvasCtx.beginPath();
+                canvasCtx.moveTo(0, HEIGHT / 2);
+                canvasCtx.lineTo(WIDTH, HEIGHT / 2);
+                canvasCtx.stroke();
+            }
+
+            draw();
+        }
+
+        // Monitor audio energy levels for VAD
+        function startVADMonitoring() {
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            function checkAudioLevel() {
+                analyser.getByteTimeDomainData(dataArray);
+
+                // Calculate RMS energy
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    const normalized = (dataArray[i] - 128) / 128;
+                    sum += normalized * normalized;
+                }
+                const rms = Math.sqrt(sum / bufferLength);
+
+                if (rms > ENERGY_THRESHOLD) {
+                    if (!isSpeaking) {
+                        isSpeaking = true;
+                        segmentFinalized = false;
+                        pendingTranscriptions = 0;
+                        currentSegmentText = "";
+                        audioBuffer = [];
+                        speechStartTime = Date.now();
+
+                        updateStatus("🎤 Listening...");
+                        startContinuousRecording();
+                        startTranscriptionInterval();
+                    }
+
+                    // Clear silence timeout - still speaking
+                    if (silenceTimeout) {
+                        clearTimeout(silenceTimeout);
+                        silenceTimeout = null;
+                    }
+                } else if (isSpeaking) {
+                    if (!silenceTimeout) {
+                        silenceTimeout = setTimeout(() => {
+                            const checkAndFinalize = () => {
+                                if (!isSpeaking && pendingTranscriptions === 0) {
+                                    finalizeSpeechSegment();
+                                } else if (pendingTranscriptions > 0) {
+                                    setTimeout(checkAndFinalize, 100);
+                                }
+                            };
+
+                            checkAndFinalize();
+                            silenceTimeout = null;
+                        }, SILENCE_DURATION);
+                    }
+                }
+
+                // Continue monitoring
+                setTimeout(checkAudioLevel, CHECK_INTERVAL);
+            }
+
+            checkAudioLevel();
+        }
+
+        // Start continuous recording - captures PCM data
+        function startContinuousRecording() {
+            if (isRecording) return;
+            isRecording = true;
+
+            // Clear audio buffer
+            audioBuffer = [];
+
+            // Create audio source from microphone stream
+            audioSourceNode = audioContext.createMediaStreamSource(audioStream);
+
+            // Create ScriptProcessorNode to capture PCM data (deprecated but still works)
+            // Buffer size: 4096 samples
+            scriptProcessorNode = audioContext.createScriptProcessor(4096, 1, 1);
+
+            scriptProcessorNode.onaudioprocess = (event) => {
+                if (!isRecording) return;
+
+                // Get audio samples (Float32Array)
+                const samples = event.inputBuffer.getChannelData(0);
+
+                // Convert to Int16Array (PCM16)
+                const pcm16 = new Int16Array(samples.length);
+                for (let i = 0; i < samples.length; i++) {
+                    const s = Math.max(-1, Math.min(1, samples[i]));
+                    pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
+
+                // Accumulate PCM data
+                audioBuffer.push(pcm16);
+            };
+
+            audioSourceNode.connect(scriptProcessorNode);
+            scriptProcessorNode.connect(audioContext.destination);
+        }
+
+        function stopContinuousRecording() {
+            isRecording = false;
+
+            if (scriptProcessorNode) {
+                scriptProcessorNode.disconnect();
+                scriptProcessorNode = null;
+            }
+
+            if (audioSourceNode) {
+                audioSourceNode.disconnect();
+                audioSourceNode = null;
+            }
+        }
+
+        // Create WAV file from PCM buffer
+        function createWavFile(pcm16Array, sampleRate) {
+            // Calculate total samples
+            const totalSamples = pcm16Array.reduce((sum, arr) => sum + arr.length, 0);
+
+            // Combine all PCM chunks into one array
+            const combinedPCM = new Int16Array(totalSamples);
+            let offset = 0;
+            for (const chunk of pcm16Array) {
+                combinedPCM.set(chunk, offset);
+                offset += chunk.length;
+            }
+
+            // Create WAV file
+            const wavBuffer = new ArrayBuffer(44 + combinedPCM.length * 2);
+            const view = new DataView(wavBuffer);
+
+            // Write WAV header
+            const writeString = (offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            };
+
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + combinedPCM.length * 2, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true); // PCM format chunk size
+            view.setUint16(20, 1, true); // Audio format (1 = PCM)
+            view.setUint16(22, 1, true); // Number of channels (1 = mono)
+            view.setUint32(24, sampleRate, true); // Sample rate
+            view.setUint32(28, sampleRate * 2, true); // Byte rate
+            view.setUint16(32, 2, true); // Block align
+            view.setUint16(34, 16, true); // Bits per sample
+            writeString(36, 'data');
+            view.setUint32(40, combinedPCM.length * 2, true);
+
+            // Write PCM data
+            const offset16 = 44;
+            for (let i = 0; i < combinedPCM.length; i++) {
+                view.setInt16(offset16 + i * 2, combinedPCM[i], true);
+            }
+
+            return new Blob([wavBuffer], { type: 'audio/wav' });
+        }
+
+        // Start interval to send accumulated audio every 1 second
+        function startTranscriptionInterval() {
+            if (transcriptionInterval) return;
+
+            transcriptionInterval = setInterval(() => {
+                if (audioBuffer.length > 0) {
+                    const wavBlob = createWavFile(audioBuffer, audioContext.sampleRate);
+
+                    if (ws.readyState === WebSocket.OPEN) {
+                        pendingTranscriptions++;
+                        ws.send(wavBlob);
+                    }
+                }
+            }, TRANSCRIBE_INTERVAL);
+        }
+
+        // Stop transcription interval
+        function stopTranscriptionInterval() {
+            if (transcriptionInterval) {
+                clearInterval(transcriptionInterval);
+                transcriptionInterval = null;
+            }
+        }
+
+        window.stopRealtimeStt = () => {
+            isSpeaking = false;
+            stopContinuousRecording();
+            stopTranscriptionInterval();
+            audioBuffer = [];
+            if (silenceTimeout) {
+                clearTimeout(silenceTimeout);
+                silenceTimeout = null;
+            }
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            if (audioStream) {
+                audioStream.getTracks().forEach(t => t.stop());
+            }
+            if (audioContext) {
+                audioContext.close();
+            }
+            updateStatus("Stopped");
+        };
+    </script>
+</body>
+</html>
