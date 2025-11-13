@@ -47,7 +47,7 @@ npm run start:http or yarn start:http
 
 ## Configuration
 
-Edit the config in `index-vad.html` (line 382):
+Edit the config in `index.html` (line 382):
 
 ```javascript
 {
